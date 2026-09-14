@@ -1,3 +1,5 @@
+import AuthGate from "./AuthGate";
+import MediaTestRoom from "./MediaTestRoom";
 import { useMemo, useState } from "react";
 import {
   Bell, ChevronRight, Flame, Headphones, Home, Menu, MessageCircle,
@@ -74,7 +76,7 @@ function HomeFeed({ go }: { go: (screen: Screen) => void }) {
   </main>;
 }
 
-function LivePanel() {
+function LegacyLivePanel() {
   const [messages, setMessages] = useState(["YoungNate: This convo fire!", "MusiicLover: Real talk 🔥"]);
   const [message, setMessage] = useState("");
   const send = () => { if (message.trim()) { setMessages([...messages, `You: ${message.trim()}`]); setMessage(""); } };
@@ -90,6 +92,8 @@ function LivePanel() {
     </section>
   </main>;
 }
+
+function LivePanel() { return <MediaTestRoom />; }
 
 function BattleScreen() {
   const [votes, setVotes] = useState<[number, number]>([1240, 1130]);
@@ -152,7 +156,7 @@ const nav: {id:Screen;label:string;icon:any}[]=[
 export default function App() {
   const [screen,setScreen]=useState<Screen>("home");
   const [menu,setMenu]=useState(false);
-  return <div className="app-shell">
+  return <AuthGate><div className="app-shell">
     <div className="phone">
       <Header onMenu={()=>setMenu(true)} />
       {screen==="home"&&<HomeFeed go={setScreen}/>}
@@ -163,5 +167,5 @@ export default function App() {
       <nav>{nav.map(item=>{const Icon=item.icon;return <button key={item.id} className={screen===item.id?"active":""} onClick={()=>setScreen(item.id)}><Icon/><span>{item.label}</span></button>})}</nav>
       {menu&&<div className="drawer-wrap" onClick={()=>setMenu(false)}><aside onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setMenu(false)}><X/></button><Brand/><button><Search/> Discover</button><button><Users/> Network Hub</button><button><Trophy/> Leaderboard</button><button><Headphones/> Music Reviews</button><button><Music2/> My Library</button><small>THE MERGE · BUILT FOR THE CULTURE</small></aside></div>}
     </div>
-  </div>;
+  </div></AuthGate>;
 }
