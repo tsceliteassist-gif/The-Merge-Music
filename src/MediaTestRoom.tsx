@@ -39,7 +39,7 @@ export default function MediaTestRoom(){
  return <main className="screen">
   <div className="page-title"><span className={room?"pulse":""}/>{room?"TEST LIVE":"LIVE STUDIO"}<b>{room?"LIVE":"OFFLINE"}</b></div>
   <button className="ejay-host-card" onClick={()=>setShowEjay(true)}>
-   <div className="ejay-photo" role="img" aria-label="EJAY PAPI wearing headphones"><span>EJAY<br/>PAPI</span></div>
+   <img className="ejay-photo" src="/ejay-papi-host.png" alt="EJAY PAPI wearing headphones" />
    <div><small>OFFICIAL HOST</small><h2>EJAY PAPI</h2><p>Tha Spot — real conversations and real connections.</p></div>
   </button>
   <section className="video-stage">
