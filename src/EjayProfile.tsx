@@ -2,7 +2,7 @@ import { ArrowLeft, BadgeCheck, Headphones, MapPin, MessageCircle, Radio, Users 
 export default function EjayProfile({onBack}:{onBack:()=>void}){
  return <main className="screen">
   <button className="back-link" onClick={onBack}><ArrowLeft/> Back to live</button>
-  <section className="profile-head official-profile"><div className="cover ejay-cover"/><div className="ejay-photo official" role="img" aria-label="EJAY PAPI wearing headphones"><span>EJAY<br/>PAPI</span></div>
+  <section className="profile-head official-profile"><div className="cover ejay-cover"/><img className="ejay-photo official" src="/ejay-papi-host.png" alt="EJAY PAPI wearing headphones" />
    <h1>EJAY PAPI <BadgeCheck/></h1><p><MapPin/> Orlando, FL</p>
    <div className="host-label"><Headphones/> OFFICIAL HOST OF THE MERGE</div>
    <div className="stats"><div><strong>12.5K</strong><span>Followers</span></div><div><strong>3.2M</strong><span>Plays</span></div><div><strong>248</strong><span>Following</span></div></div>
