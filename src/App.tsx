@@ -1,3 +1,4 @@
+import { supabase } from "./supabase";
 import MemberProfile from "./MemberProfile";
 import AuthGate from "./AuthGate";
 import MediaTestRoom from "./MediaTestRoom";
@@ -166,7 +167,7 @@ export default function App() {
       {screen==="upload"&&<UploadScreen/>}
       {screen==="profile"&&<MemberProfile/>}
       <nav>{nav.map(item=>{const Icon=item.icon;return <button key={item.id} className={screen===item.id?"active":""} onClick={()=>setScreen(item.id)}><Icon/><span>{item.label}</span></button>})}</nav>
-      {menu&&<div className="drawer-wrap" onClick={()=>setMenu(false)}><aside onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setMenu(false)}><X/></button><Brand/><button><Search/> Discover</button><button><Users/> Network Hub</button><button><Trophy/> Leaderboard</button><button><Headphones/> Music Reviews</button><button><Music2/> My Library</button><small>THE MERGE · BUILT FOR THE CULTURE</small></aside></div>}
+      {menu&&<div className="drawer-wrap" onClick={()=>setMenu(false)}><aside onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setMenu(false)}><X/></button><Brand/><button><Search/> Discover</button><button><Users/> Network Hub</button><button><Trophy/> Leaderboard</button><button><Headphones/> Music Reviews</button><button><Music2/> My Library</button><button onClick={()=>supabase.auth.signOut()}><UserRound/> Log Out</button><small>THE MERGE · BUILT FOR THE CULTURE</small></aside></div>}
     </div>
   </div></AuthGate>;
 }
