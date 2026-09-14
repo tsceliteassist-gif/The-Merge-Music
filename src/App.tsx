@@ -1,173 +1,44 @@
-import { supabase } from "./supabase";
-import MemberProfile from "./MemberProfile";
-import AuthGate from "./AuthGate";
-import MediaTestRoom from "./MediaTestRoom";
-import { useMemo, useState } from "react";
-import {
-  Bell, ChevronRight, Flame, Headphones, Home, Menu, MessageCircle,
-  Mic2, Music2, Play, Plus, Radio, Search, Send, Swords, Trophy,
-  Upload, UserRound, Users, X
-} from "lucide-react";
+import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BadgeCheck, Camera, Gift, Home, LogOut, Menu, Mic, Music2, Shield, Swords, Upload, User, Video, X } from 'lucide-react';
+import type { Session } from '@supabase/supabase-js';
+import { configured, supabase } from './lib/supabase';
+import type { LiveRoom, Profile, Role } from './types';
 
-type Screen = "home" | "live" | "battles" | "upload" | "profile";
+const EJAY_IMAGE='https://the-merge-music.lovable.app/__l5e/assets-v1/d466471d-69af-4352-b755-cf5f69b4dde3/ejay-papi-host.png';
+const CATEGORIES=['artist','producer','dj','engineer','creator','fan'] as const;
 
-const artists = [
-  { name: "EJAY PAPI", role: "Host · DJ", color: "ejay" },
-  { name: "Young Flame", role: "Artist", color: "flame" },
-  { name: "J-Roc", role: "Artist", color: "jroc" },
-  { name: "Ras Vibes", role: "Producer", color: "vibes" }
-];
-
-const tracks = [
-  { title: "Ice Cold", artist: "BeatMakerC", plays: "23.1K", tag: "Trending" },
-  { title: "No Love", artist: "Young Flame", plays: "18.7K", tag: "Battle pick" },
-  { title: "On Go", artist: "EJAY PAPI", plays: "12.9K", tag: "New" }
-];
-
-function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
-  return <div className={`avatar ${size}`} aria-label={name}>{name.split(" ").map(x => x[0]).join("").slice(0, 2)}</div>;
+function Auth({onReady}:{onReady:(s:Session)=>void}){
+  const [mode,setMode]=useState<'login'|'signup'|'reset'>('login'); const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [msg,setMsg]=useState(''); const [busy,setBusy]=useState(false);
+  async function submit(e:FormEvent){e.preventDefault();setBusy(true);setMsg('');
+    if(!configured){setMsg('Backend setup required. Add Supabase environment variables.');setBusy(false);return;}
+    if(mode==='reset'){const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:location.origin});setMsg(error?.message||'Check your email for the reset link.');setBusy(false);return;}
+    const result=mode==='signup'?await supabase.auth.signUp({email,password}):await supabase.auth.signInWithPassword({email,password});
+    if(result.error)setMsg(result.error.message); else if(result.data.session)onReady(result.data.session); else setMsg('Check your email to confirm your account.'); setBusy(false);
+  }
+  return <main className="auth"><section className="auth-card"><div className="brand"><Music2/> THE MERGE</div><p className="eyebrow">BY EJAY PAPI</p><h1>{mode==='signup'?'Create your profile':mode==='reset'?'Reset password':'Member login'}</h1><p className="muted">The community is available only to registered members.</p><form onSubmit={submit}><label>Email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email"/></label>{mode!=='reset'&&<label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={8} required autoComplete={mode==='signup'?'new-password':'current-password'}/></label>}<button disabled={busy}>{busy?'Please wait…':mode==='signup'?'Create account':mode==='reset'?'Send reset link':'Log in'}</button></form>{msg&&<p className="notice">{msg}</p>}<div className="auth-links">{mode!=='login'&&<button onClick={()=>setMode('login')}>Log in</button>}{mode!=='signup'&&<button onClick={()=>setMode('signup')}>Create account</button>}{mode!=='reset'&&<button onClick={()=>setMode('reset')}>Forgot password?</button>}</div></section></main>
 }
 
-function Brand() {
-  return <div className="brand"><span>THE</span><strong>MERGE</strong><em>BY EJAY PAPI</em></div>;
+function Shell({session,role,children}:{session:Session;role:Role;children:ReactNode}){
+ const [open,setOpen]=useState(false); const loc=useLocation(); useEffect(()=>setOpen(false),[loc.pathname]); useEffect(()=>{const fn=(e:KeyboardEvent)=>e.key==='Escape'&&setOpen(false);addEventListener('keydown',fn);return()=>removeEventListener('keydown',fn)},[]);
+ const links=[['/','Home',Home],['/live','Live',Video],['/battle','Battles',Swords],['/upload','Upload / Submit',Upload],['/profile','My Profile',User],['/profiles/ejaypapi','EJAY PAPI',BadgeCheck]] as const;
+ return <><header><button className="icon" aria-label="Open menu" onClick={()=>setOpen(true)}><Menu/></button><Link to="/" className="brand"><Music2/> THE MERGE</Link><span className="live-dot">LIVE</span></header>{open&&<div className="scrim" onMouseDown={()=>setOpen(false)}><aside onMouseDown={e=>e.stopPropagation()} aria-label="Main menu"><div className="drawer-head"><b>MENU</b><button className="icon" aria-label="Close menu" onClick={()=>setOpen(false)}><X/></button></div><nav>{links.map(([to,label,I])=><Link key={to} to={to}><I/>{label}</Link>)}{role!=='user'&&<Link to="/admin"><Shield/>Admin Dashboard</Link>}<button className="nav-logout" onClick={()=>supabase.auth.signOut()}><LogOut/>Log out</button></nav><small>{session.user.email}</small></aside></div>}<div className="page">{children}</div><footer>{links.slice(0,5).map(([to,label,I])=><Link aria-label={label} key={to} to={to} className={loc.pathname===to?'active':''}><I/><span>{label.split(' ')[0]}</span></Link>)}</footer></>
 }
 
-function Header({ onMenu }: { onMenu: () => void }) {
-  return <header>
-    <button className="icon ghost" onClick={onMenu} aria-label="Menu"><Menu /></button>
-    <Brand />
-    <button className="icon ghost" aria-label="Notifications"><Bell /><i /></button>
-  </header>;
-}
+function HomePage(){return <><section className="hero"><p className="eyebrow">MUSIC • COMMUNITY • REAL CONNECTIONS</p><h1>Your sound belongs here.</h1><p>Join live rooms, build your profile, enter battles and connect with creators.</p><Link className="cta" to="/live">Go to Live</Link></section><section className="cards"><article><Mic/><h2>Live rooms</h2><p>Real room status and viewers—never fabricated.</p></article><article><Swords/><h2>Music battles</h2><p>Community competition and voting.</p></article><article><Gift/><h2>Gifting</h2><p>Unlocks after the secure coin and payment ledger is configured.</p></article></section></>}
 
-function HomeFeed({ go }: { go: (screen: Screen) => void }) {
-  return <main className="screen">
-    <section className="hero">
-      <div className="live-orb"><Radio /></div>
-      <p className="eyebrow">LIVE NOW · 1.2K LISTENING</p>
-      <h1>EJAY PAPI & THE CREATORS</h1>
-      <p>Real talk, new sounds and the people moving music forward.</p>
-      <button className="primary" onClick={() => go("live")}><Mic2 /> JOIN LIVE PANEL</button>
-    </section>
+function ProfilePage({session}:{session:Session}){const [p,setP]=useState<Partial<Profile>>({});const [msg,setMsg]=useState('');useEffect(()=>{supabase.from('profiles').select('*').eq('id',session.user.id).maybeSingle().then(({data})=>data&&setP(data))},[session.user.id]);async function save(e:FormEvent){e.preventDefault();const {error}=await supabase.from('profiles').upsert({...p,id:session.user.id});setMsg(error?.message||'Profile saved.')}return <section><h1>My Profile</h1><form className="profile-form" onSubmit={save}><label>Display name<input required value={p.display_name||''} onChange={e=>setP({...p,display_name:e.target.value})}/></label><label>Username<input required value={p.username||''} onChange={e=>setP({...p,username:e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'')})}/></label><label>Creator type<select value={p.creator_type||'fan'} onChange={e=>setP({...p,creator_type:e.target.value})}><option>fan</option><option>artist</option><option>producer</option><option>DJ</option><option>engineer</option><option>creator</option></select></label><div className="two"><label>City<input value={p.city||''} onChange={e=>setP({...p,city:e.target.value})}/></label><label>State<input maxLength={2} value={p.state||''} onChange={e=>setP({...p,state:e.target.value.toUpperCase()})}/></label></div><label>Photo URL<input value={p.avatar_url||''} onChange={e=>setP({...p,avatar_url:e.target.value})}/></label><label>Bio<textarea value={p.bio||''} onChange={e=>setP({...p,bio:e.target.value})}/></label><button>Save profile</button>{msg&&<p className="notice">{msg}</p>}</form></section>}
 
-    <section>
-      <div className="section-head"><div><span className="eyebrow">THE MAIN EVENT</span><h2>Featured Battle</h2></div><button onClick={() => go("battles")}>View all <ChevronRight /></button></div>
-      <button className="battle-card" onClick={() => go("battles")}>
-        <div className="battle-top"><span><Swords /> ARTIST BATTLE</span><b>ROUND 1</b></div>
-        <div className="versus">
-          <div><Avatar name="Young Flame" size="lg" /><strong>YOUNG FLAME</strong><small>“No Love”</small></div>
-          <em>VS</em>
-          <div><Avatar name="J-Roc" size="lg" /><strong>J-ROC</strong><small>“Pain Real”</small></div>
-        </div>
-        <div className="vote-preview"><span style={{width:"52%"}}>52%</span><span>48%</span></div>
-        <p><Flame /> Voting ends in 01:32:45</p>
-      </button>
-    </section>
+function Ejay(){return <section className="official"><img src={EJAY_IMAGE} alt="EJAY PAPI wearing headphones"/><h1>EJAY PAPI <BadgeCheck/></h1><p>@ejaypapi • Host • Orlando, FL</p><p>Official host of The Merge—real conversations, music and community connections.</p><div className="empty-stat">Followers: 0&nbsp;&nbsp; Following: 0&nbsp;&nbsp; Plays: 0</div></section>}
 
-    <section>
-      <div className="section-head"><div><span className="eyebrow">WHAT'S MOVING</span><h2>Trending Now</h2></div><button>See all <ChevronRight /></button></div>
-      <div className="track-list">{tracks.map((track, i) =>
-        <article className="track" key={track.title}>
-          <button className="play"><Play fill="currentColor" /></button>
-          <div><strong>{track.title}</strong><span>{track.artist}</span></div>
-          <div className="track-meta"><small>{track.tag}</small><span>{track.plays} plays</span></div>
-          <button className="more">•••</button>
-        </article>
-      )}</div>
-    </section>
-  </main>;
-}
+function CameraTest(){const video=useRef<HTMLVideoElement>(null);const [stream,setStream]=useState<MediaStream|null>(null);const [error,setError]=useState('');async function enable(){try{const s=await navigator.mediaDevices.getUserMedia({video:true,audio:true});setStream(s);if(video.current)video.current.srcObject=s}catch(e){setError(e instanceof Error?e.message:'Camera or microphone permission denied.')}}function stop(){stream?.getTracks().forEach(t=>t.stop());setStream(null);if(video.current)video.current.srcObject=null}useEffect(()=>()=>stream?.getTracks().forEach(t=>t.stop()),[stream]);return <div className="camera"><video ref={video} autoPlay playsInline muted/><div className="camera-actions">{!stream?<button onClick={enable}><Camera/>Enable camera & microphone</button>:<button onClick={stop}><X/>Stop test</button>}</div>{error&&<p className="notice">Allow camera and microphone in your browser settings, then try again. {error}</p>}</div>}
 
-function LegacyLivePanel() {
-  const [messages, setMessages] = useState(["YoungNate: This convo fire!", "MusiicLover: Real talk 🔥"]);
-  const [message, setMessage] = useState("");
-  const send = () => { if (message.trim()) { setMessages([...messages, `You: ${message.trim()}`]); setMessage(""); } };
-  return <main className="screen">
-    <div className="page-title"><span className="pulse" /> LIVE PANEL <b>1.2K</b></div>
-    <section className="live-room">
-      <div className="host"><Avatar name="EJAY PAPI" size="lg" /><div><span>HOST</span><h2>EJAY PAPI</h2><p>Atlanta, GA</p></div><div className="audio-bars"><i/><i/><i/><i/></div></div>
-      <div className="speaker-grid">{artists.slice(1).map(a => <div className="speaker" key={a.name}><Avatar name={a.name} /><strong>{a.name}</strong><small>{a.role}</small><span><Mic2 /></span></div>)}</div>
-      <div className="topic"><Flame /><div><small>TONIGHT'S TOPIC</small><strong>MusicLover: “Real talk?”</strong></div></div>
-      <div className="chat">{messages.map((m,i)=><p key={i}>{m}</p>)}</div>
-      <div className="composer"><input value={message} onChange={e=>setMessage(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Type a message..." /><button onClick={send}><Send /></button></div>
-      <button className="primary wide"><Mic2 /> REQUEST TO SPEAK</button>
-    </section>
-  </main>;
-}
+function LivePage({session}:{session:Session}){const [rooms,setRooms]=useState<LiveRoom[]>([]);const [viewers,setViewers]=useState(0);useEffect(()=>{const load=()=>supabase.from('live_rooms').select('*').eq('status','live').then(({data})=>setRooms(data||[]));load();const changes=supabase.channel('live-room-changes').on('postgres_changes',{event:'*',schema:'public',table:'live_rooms'},load).subscribe();const presence=supabase.channel('global-live-presence',{config:{presence:{key:session.user.id}}});presence.on('presence',{event:'sync'},()=>setViewers(Object.keys(presence.presenceState()).length)).subscribe(async s=>{if(s==='SUBSCRIBED')await presence.track({online_at:new Date().toISOString()})});return()=>{supabase.removeChannel(changes);supabase.removeChannel(presence)}},[session.user.id]);return <section><h1>Live</h1><div className="category-grid">{CATEGORIES.map(c=><Link to={`/directory/${c}`} key={c}>{c==='dj'?'DJs':`${c[0].toUpperCase()}${c.slice(1)}s`}</Link>)}</div><div className="status"><span className={rooms.length?'on':'off'}/><b>{rooms.length?`${rooms.length} live room${rooms.length>1?'s':''}`:'No one is live right now'}</b><small>{viewers} authenticated viewer{viewers===1?'':'s'} online</small></div><CameraTest/><p className="muted">This device test uses your real camera and microphone. Large-audience broadcasting stays disabled until LiveKit is connected; the app will not pretend a local preview is a public stream.</p></section>}
 
-function LivePanel() { return <MediaTestRoom />; }
+function Directory(){const category=useLocation().pathname.split('/').pop()||'artist';const [people,setPeople]=useState<Profile[]>([]);useEffect(()=>{supabase.from('profiles').select('*').ilike('creator_type',category).eq('is_suspended',false).order('display_name').then(({data})=>setPeople(data||[]))},[category]);return <section><h1>{category==='dj'?'DJs':`${category}s`}</h1><div className="directory">{people.length?people.map(p=><article key={p.id}>{p.avatar_url?<img src={p.avatar_url} alt=""/>:<User/>}<div><b>{p.display_name}</b><small>@{p.username}{p.city?` • ${p.city}${p.state?', '+p.state:''}`:''}</small></div></article>):<p className="muted">No registered {category}s yet. New profiles will appear here automatically.</p>}</div></section>}
 
-function BattleScreen() {
-  const [votes, setVotes] = useState<[number, number]>([1240, 1130]);
-  const total = votes[0] + votes[1];
-  const percentages = useMemo(() => [Math.round(votes[0]/total*100), Math.round(votes[1]/total*100)], [votes,total]);
-  return <main className="screen">
-    <div className="page-title"><Swords /> MUSIC BATTLE <b>ROUND 1</b></div>
-    <section className="battle-stage">
-      <p className="eyebrow">ARTIST BATTLE · VOTING OPEN</p>
-      <div className="versus large">
-        <div><Avatar name="Young Flame" size="lg" /><strong>YOUNG FLAME</strong><small>“No Love”</small><button className="play"><Play fill="currentColor"/></button></div>
-        <em>VS</em>
-        <div><Avatar name="J-Roc" size="lg" /><strong>J-ROC</strong><small>“Pain Real”</small><button className="play"><Play fill="currentColor"/></button></div>
-      </div>
-      <div className="timer"><small>TIME LEFT</small><strong>01:32:45</strong></div>
-      <div className="vote-bars"><button onClick={()=>setVotes([votes[0]+1,votes[1]])} style={{width:`${percentages[0]}%`}}><b>{percentages[0]}%</b><small>{votes[0].toLocaleString()} votes</small></button><button onClick={()=>setVotes([votes[0],votes[1]+1])}><b>{percentages[1]}%</b><small>{votes[1].toLocaleString()} votes</small></button></div>
-      <p className="tap-note">Tap a side to cast your vote</p>
-    </section>
-    <div className="tabs"><button className="active">DETAILS</button><button>COMMENTS</button><button>STATS</button></div>
-    <article className="info-card"><Trophy /><div><strong>Winner advances to The Merge Finals</strong><p>Community voting determines who moves on. One vote per member.</p></div></article>
-  </main>;
-}
+function Admin({role}:{role:Role}){const [profiles,setProfiles]=useState<Profile[]>([]);const [rooms,setRooms]=useState<LiveRoom[]>([]);useEffect(()=>{if(role!=='user'){supabase.from('profiles').select('*').order('created_at',{ascending:false}).then(({data})=>setProfiles(data||[]));supabase.from('live_rooms').select('*').order('created_at',{ascending:false}).then(({data})=>setRooms(data||[]))}},[role]);if(role==='user')return <Navigate to="/"/>;return <section><h1>Admin Dashboard</h1><div className="metrics"><article><b>{profiles.length}</b><span>Users</span></article><article><b>{rooms.filter(r=>r.status==='live').length}</b><span>Live now</span></article></div><h2>Users</h2><div className="table">{profiles.length?profiles.map(p=><div key={p.id}><span>{p.display_name||p.username}</span><small>@{p.username} • {p.is_suspended?'Suspended':'Active'}</small></div>):<p>No registered users found.</p>}</div></section>}
 
-function UploadScreen() {
-  const [type,setType]=useState("battle");
-  const [submitted,setSubmitted]=useState(false);
-  if(submitted) return <main className="screen success"><div><Trophy/><h1>TRACK SUBMITTED</h1><p>Your entry is now pending review by The Merge team.</p><button className="primary" onClick={()=>setSubmitted(false)}>SUBMIT ANOTHER</button></div></main>;
-  return <main className="screen">
-    <div className="page-title"><Upload /> SUBMIT YOUR MUSIC</div>
-    <p className="intro">Choose how you want your sound heard.</p>
-    <div className="submission-types">
-      {[["battle","⚡","MUSIC BATTLE","Submit a song/beat to compete"],["review","🎧","MUSIC REVIEW","Get feedback and a score from DJs"],["video","🎬","FEATURE / VIDEO","Submit a visual for exposure"]].map(x=>
-        <button key={x[0]} className={type===x[0]?"active":""} onClick={()=>setType(x[0])}><b>{x[1]}</b><span><strong>{x[2]}</strong><small>{x[3]}</small></span></button>
-      )}
-    </div>
-    <form className="submit-form" onSubmit={e=>{e.preventDefault();setSubmitted(true)}}>
-      <label>TRACK TITLE<input required placeholder="Enter track title" /></label>
-      <label>ARTIST / PRODUCER NAME<input required placeholder="Your display name" /></label>
-      <label>GENRE<select required defaultValue=""><option value="" disabled>Select genre</option><option>Hip-Hop</option><option>R&B</option><option>Afrobeats</option><option>Pop</option><option>Other</option></select></label>
-      <label className="drop"><Upload /><strong>UPLOAD AUDIO</strong><span>MP3, WAV or M4A · Max 25MB</span><input required type="file" accept="audio/*"/></label>
-      <button className="primary wide">SUBMIT TRACK</button>
-    </form>
-  </main>;
-}
+function Placeholder({title}:{title:string}){return <section><h1>{title}</h1><p className="muted">This section is connected to authenticated navigation. Database workflows are being activated without demo records.</p></section>}
 
-function Profile() {
-  return <main className="screen">
-    <section className="profile-head"><div className="cover"/><Avatar name="EJAY PAPI" size="lg"/><h1>EJAY PAPI <span>✓</span></h1><p>@ejaypapi · Atlanta, GA</p><div className="stats"><div><strong>248</strong><span>Following</span></div><div><strong>12.5K</strong><span>Followers</span></div><div><strong>3.2M</strong><span>Plays</span></div></div><div className="profile-actions"><button className="primary">FOLLOW</button><button className="secondary"><MessageCircle/> MESSAGE</button></div></section>
-    <div className="tabs"><button className="active">MUSIC</button><button>VIDEOS</button><button>BATTLES</button><button>ABOUT</button></div>
-    <div className="track-list">{tracks.filter(x=>x.artist==="EJAY PAPI").concat(tracks.slice(0,2)).map((t,i)=><article className="track" key={i}><button className="play"><Play fill="currentColor"/></button><div><strong>{t.title}</strong><span>EJAY PAPI</span></div><div className="track-meta"><span>{t.plays}</span></div></article>)}</div>
-  </main>;
-}
-
-const nav: {id:Screen;label:string;icon:any}[]=[
-  {id:"home",label:"Home",icon:Home},{id:"live",label:"Live",icon:Radio},
-  {id:"battles",label:"Battles",icon:Swords},{id:"upload",label:"Upload",icon:Plus},
-  {id:"profile",label:"Profile",icon:UserRound}
-];
-
-export default function App() {
-  const [screen,setScreen]=useState<Screen>("home");
-  const [menu,setMenu]=useState(false);
-  return <AuthGate><div className="app-shell">
-    <div className="phone">
-      <Header onMenu={()=>setMenu(true)} />
-      {screen==="home"&&<HomeFeed go={setScreen}/>}
-      {screen==="live"&&<LivePanel/>}
-      {screen==="battles"&&<BattleScreen/>}
-      {screen==="upload"&&<UploadScreen/>}
-      {screen==="profile"&&<MemberProfile/>}
-      <nav>{nav.map(item=>{const Icon=item.icon;return <button key={item.id} className={screen===item.id?"active":""} onClick={()=>setScreen(item.id)}><Icon/><span>{item.label}</span></button>})}</nav>
-      {menu&&<div className="drawer-wrap" onClick={()=>setMenu(false)}><aside onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setMenu(false)}><X/></button><Brand/><button><Search/> Discover</button><button><Users/> Network Hub</button><button><Trophy/> Leaderboard</button><button><Headphones/> Music Reviews</button><button><Music2/> My Library</button><button onClick={()=>supabase.auth.signOut()}><UserRound/> Log Out</button><small>THE MERGE · BUILT FOR THE CULTURE</small></aside></div>}
-    </div>
-  </div></AuthGate>;
-}
+export function App(){const [session,setSession]=useState<Session|null|undefined>(undefined);const [role,setRole]=useState<Role>('user');useEffect(()=>{supabase.auth.getSession().then(({data})=>setSession(data.session));const {data}=supabase.auth.onAuthStateChange((_e,s)=>setSession(s));return()=>data.subscription.unsubscribe()},[]);useEffect(()=>{if(session)supabase.rpc('current_user_role').then(({data})=>setRole((data as Role)||'user'));else setRole('user')},[session]);if(session===undefined)return <div className="splash">Loading The Merge…</div>;if(!session)return <Auth onReady={setSession}/>;return <Shell session={session} role={role}><Routes><Route path="/" element={<HomePage/>}/><Route path="/live" element={<LivePage session={session}/>}/><Route path="/battle" element={<Placeholder title="Music Battles"/>}/><Route path="/upload" element={<Placeholder title="Upload / Submit"/>}/><Route path="/profile" element={<ProfilePage session={session}/>}/><Route path="/profiles/ejaypapi" element={<Ejay/>}/><Route path="/directory/:category" element={<Directory/>}/><Route path="/admin" element={<Admin role={role}/>}/><Route path="*" element={<Navigate to="/"/>}/></Routes></Shell>}
