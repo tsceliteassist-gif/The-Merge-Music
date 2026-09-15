@@ -1,12 +1,34 @@
-# The Merge Music
+# The MERGE Music
 
-Production-oriented React app for The Merge Music. It uses Supabase for email/password authentication, profiles, secure roles, live-room state and realtime presence.
+The current MERGE design with a production-oriented backend foundation:
 
-## Setup
+- Supabase Auth, profiles, row-level security and staff roles
+- EJAY PAPI official profile, separate from each member's editable profile
+- LiveKit camera/audio rooms with server-minted tokens
+- Authenticated Socket.IO chat, live presence and verified gift animations
+- Atomic coin balances, gift transactions and a 70/30 creator/platform ledger
+- Reports and moderator workflows
+- Stripe Checkout and idempotent webhook crediting
+- Rate limiting, CI, SPA deployment configuration and PWA install icons
 
-1. Create a Supabase project and run `supabase/migrations/001_initial.sql`.
-2. Copy `.env.example` to `.env` and add the public Supabase URL and anon key.
-3. Sign up through the app, then replace `YOUR_ADMIN_EMAIL` in the final SQL statement in the migration and run that statement once to grant the master-admin role.
-4. Run `npm install && npm run dev`.
+No demo users, follower totals, play totals, rooms or viewers are seeded.
 
-The camera/microphone test is real and uses the current device. Large-audience broadcasting requires LiveKit credentials plus a secure server endpoint that mints room tokens. The UI never fabricates viewer counts or live activity.
+## Local setup
+
+1. Copy `.env.example` to `.env` and add your own Supabase, LiveKit and Stripe values. Never commit `.env`.
+2. Run every SQL file in `supabase/migrations` in numeric order.
+3. Create the real accounts in Supabase Auth, then assign the master-admin role with the commented SQL at the bottom of migration 006. Do not create passwords in SQL or source code.
+4. Install dependencies with `npm install`.
+5. Run the frontend with `npm run dev` and the API/WebSocket service with `npm run dev:server`.
+
+## Deployment
+
+Deploy the Vite frontend to Lovable or Vercel. Deploy the Express/Socket.IO service to a persistent Node host that supports WebSockets, then set `VITE_API_URL` to that public API URL. Configure the private server variables only on the API host. Add the API's Stripe webhook URL as `/api/payments/webhook`.
+
+Before launch run:
+
+```bash
+npm run typecheck
+npm run build
+npm run build:server
+```
